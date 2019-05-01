@@ -1,0 +1,26 @@
+﻿<script type="text/javascript">
+    RED.nodes.registerType('graph-player',{
+        category: 'function',
+        color: '#a6bbcf',
+        defaults: {
+            name: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "player.png",
+        label: function() {
+            return this.name||"graph-player";
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="graph-player">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="graph-player">
+    <p>A fun node to play graphses</p>
+</script>
