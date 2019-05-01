@@ -7,35 +7,31 @@ module.exports = function (RED) {
     RED.nodes.registerType("graph-player", GraphPlayerNode);
 }
 
-const DEFAULT_MONITOR = {};
-const DEFAULT_FLAGS = { "SETUP": false, "IN_PROCESS": false };
-const DEFAULT_DATA = {
-    "vertexList": [],
-    "edgeList": [],
-    "robotList": [],
-    "busyRobots": [],
-    "doneList": [],
-    "commandList": {},
-    "highestNumber": 0
-};
-
 function NR_switch(msg, node) {
-    // Néhány globális
+    // NÃ©hÃ¡ny globÃ¡lis
     var CTX = node.context();
 
-    var DATA = CTX.get("data") || DEFAULT_DATA;
-    var MONITOR = CTX.get("monitor") || DEFAULT_MONITOR;
-    var FLAGS = CTX.get("flagses") || DEFAULT_FLAGS;
+    var DATA = CTX.get("data") || {
+        "vertexList": [],
+        "edgeList": [],
+        "robotList": [],
+        "busyRobots": [],
+        "doneList": [],
+        "commandList": {},
+        "highestNumber": 0
+    };
+    var MONITOR = CTX.get("monitor") || {};
+    var FLAGS = CTX.get("flagses") || { "SETUP": false, "IN_PROCESS": false };
 
     var REPLY = null;
 
-    // TFH a felhasználó jóindulatú:
-    //     * A node pontosan akkor kapott gráfot, hogyha van annak a payloadnak graphID property-je
-    //     * A node pontosan akkor kapott reset parancsot, hogyha a payloadnak van reset tulajdonsága
-    //     * A node pontosan akkor kapott start parancsot, hogyha a payloadnak van start tulajdonsága
+    // TFH a felhasznÃ¡lÃ³ jÃ³indulatÃº:
+    //     * A node pontosan akkor kapott grÃ¡fot, hogyha van annak a payloadnak graphID property-je
+    //     * A node pontosan akkor kapott reset parancsot, hogyha a payloadnak van reset tulajdonsÃ¡ga
+    //     * A node pontosan akkor kapott start parancsot, hogyha a payloadnak van start tulajdonsÃ¡ga
     //
     if (msg.payload.hasOwnProperty("reset")) {
-        // A kritikus és használt dolgok alaphelyzetbe állítása
+        // A kritikus Ã©s hasznÃ¡lt dolgok alaphelyzetbe Ã¡llÃ­tÃ¡sa
         /*node.error("Data out", JSON.stringify(FLAGS));
         node.error("Data out", JSON.stringify(DATA));
         node.error("Data out", JSON.stringify(MONITOR));*/
@@ -50,17 +46,17 @@ function NR_switch(msg, node) {
         node.error("Data out", JSON.stringify(MONITOR));*/
         node.status({ text: "Resetted" });
 
-    } else if (msg.payload.hasOwnProperty("graphID")) { // Tehát ha gráf jött
+    } else if (msg.payload.hasOwnProperty("graphID")) { // TehÃ¡t ha grÃ¡f jÃ¶tt
         if (FLAGS.IN_PROCESS) {
-            // Egyenlõre legyen így, külön ágon
+            // EgyenlÃµre legyen Ã­gy, kÃ¼lÃ¶n Ã¡gon
             node.status({ text: "Setting graph while running" });
             NR_setupWhileRunning();
         } else {
             node.status({ text: "Setting graph" });
             NR_setup();
         }
-    } else if (msg.payload.hasOwnProperty("start")) { // Ha start érkezett
-        if (FLAGS.SETUP) { // Csak a setup megléte után lehet gráfot futtatni
+    } else if (msg.payload.hasOwnProperty("start")) { // Ha start Ã©rkezett
+        if (FLAGS.SETUP) { // Csak a setup meglÃ©te utÃ¡n lehet grÃ¡fot futtatni
             if (FLAGS.IN_PROCESS) {
                 node.error("Graph playing in already progress", msg);
             } else {
@@ -68,18 +64,18 @@ function NR_switch(msg, node) {
                 node.status({ text: "Started" });
                 REPLY = NR_send();
             }
-        } else { // Egyébként error
+        } else { // EgyÃ©bkÃ©nt error
             node.error("Tried to start graph playing w/o setting things up", msg);
         }
-    } else if (msg.payload.hasOwnProperty("status")) { // Valamiféle státuszos üzenet érkezett
+    } else if (msg.payload.hasOwnProperty("status")) { // ValamifÃ©le stÃ¡tuszos Ã¼zenet Ã©rkezett
         if (FLAGS.IN_PROCESS) {
             switch (msg.payload.status) {
                 case 0: // Command sent
-                    // Ha ilyen kerül ide, akkor valami gáz van
+                    // Ha ilyen kerÃ¼l ide, akkor valami gÃ¡z van
                     node.error("Something is not right: got msg w/ status = 0", msg);
                     break;
                 case 1: // Acknowledged
-                    // Hacsak nem lesznek szûrve a dolgok folyamon kívül, akkor ilyenek is jöhetnek
+                    // Hacsak nem lesznek szÃ»rve a dolgok folyamon kÃ­vÃ¼l, akkor ilyenek is jÃ¶hetnek
                     REPLY = NR_acknowledge();
                     node.status({ text: "Got acknowledge" });
                     break;
@@ -89,11 +85,11 @@ function NR_switch(msg, node) {
                     node.status({ text: "Got done" });
                     break;
                 case 3: // Error
-                    // Amíg a robot 3-as kóddal dobja a hibát...
+                    // AmÃ­g a robot 3-as kÃ³ddal dobja a hibÃ¡t...
                     node.error("Got error", msg);
                     break;
                 default:
-                    // Ha már switch, legyen gondolva mindenre is
+                    // Ha mÃ¡r switch, legyen gondolva mindenre is
                     node.error("NR_switch got message of unhandled status type", msg);
             }
         } else if (FLAGS.SETUP) {
@@ -102,11 +98,11 @@ function NR_switch(msg, node) {
             node.error("Playing is not in progress", msg);
         }
     } else {
-        // Ésakkor ha nem lelnénk semmit, ami távolról legalább jónak tûnik
+        // Ã‰sakkor ha nem lelnÃ©nk semmit, ami tÃ¡volrÃ³l legalÃ¡bb jÃ³nak tÃ»nik
         node.error("NR_switch got an input of unhandled type", msg);
     }
 
-    // Visszaírás
+    // VisszaÃ­rÃ¡s
     CTX.set("flagses", FLAGS);
     CTX.set("data", DATA);
     CTX.set("monitor", MONITOR);
@@ -119,8 +115,8 @@ function NR_switch(msg, node) {
     function NR_setup() {
         msg = NR_simplify();
         
-        // A JavaScript objektumok listájának átalakítása kétdimenziós tömbökké
-        // A minimum várt objektumváz:
+        // A JavaScript objektumok listÃ¡jÃ¡nak Ã¡talakÃ­tÃ¡sa kÃ©tdimenziÃ³s tÃ¶mbÃ¶kkÃ©
+        // A minimum vÃ¡rt objektumvÃ¡z:
         //     {
         //         "number": int,
         //         "task": {
@@ -133,22 +129,22 @@ function NR_switch(msg, node) {
         //         },
         //         "parents": [..,int,..]
         //     }
-        // A lista, ami lesz belõle egyszer:
+        // A lista, ami lesz belÃµle egyszer:
         //     [..,[task_id, robot_id],..]
         DATA.vertexList = msg.payload.entries.map( (currentValue) => [currentValue["number"], currentValue["task"]["target"]] );
-        // Majd másszor:
+        // Majd mÃ¡sszor:
         //     [..,[parent_id_id, child_id],..]
         DATA.edgeList = [];
         msg.payload.entries.forEach( (currentValue) => currentValue["parents"].forEach( (currentValue) => DATA.edgeList.push([currentValue, this["number"]]) , currentValue) );
 
-        // Elõször lista képzése az taskok target-jeibõl (map),
-        //     majd ennek az elemeinek rendezése növekvõ sorrendbe (sort),
-        //     végül szûrés a különbözõ elemekre (filter)
+        // ElÃµszÃ¶r lista kÃ©pzÃ©se az taskok target-jeibÃµl (map),
+        //     majd ennek az elemeinek rendezÃ©se nÃ¶vekvÃµ sorrendbe (sort),
+        //     vÃ©gÃ¼l szÃ»rÃ©s a kÃ¼lÃ¶nbÃ¶zÃµ elemekre (filter)
         DATA.robotList = msg.payload.entries.map( (currentValue)  => currentValue["task"]["target"] ).sort(ascendingSort).filter(function (currentValue, index, array) {
-            // A növekvõ (vagy csökkenõ - mindegy is, csak az azonos elemek egymás után legyenek) sorrendbe
-            //     rendezett tömbön lesz a végigszaladás: mindegyik elemnél vizsgálva lesz (jó, az elsõnél nem),
-            //     hogy azonos-e az elõzõvel. Ha igen, akkor az frankó, true-t ad vissza a filter, bekerül az
-            //     eredménytömbbe.
+            // A nÃ¶vekvÃµ (vagy csÃ¶kkenÃµ - mindegy is, csak az azonos elemek egymÃ¡s utÃ¡n legyenek) sorrendbe
+            //     rendezett tÃ¶mbÃ¶n lesz a vÃ©gigszaladÃ¡s: mindegyik elemnÃ©l vizsgÃ¡lva lesz (jÃ³, az elsÃµnÃ©l nem),
+            //     hogy azonos-e az elÃµzÃµvel. Ha igen, akkor az frankÃ³, true-t ad vissza a filter, bekerÃ¼l az
+            //     eredmÃ©nytÃ¶mbbe.
             if (index === 0) {
                 return true;
             } else {
@@ -156,8 +152,8 @@ function NR_switch(msg, node) {
             }
         });
 
-        // A majd küldendõ utasítások elõkészítése a könnyebb(?) keresgéléshez, illetve a parse-olónak
-        // A parse-oló minimum az alábbi struktúrájú objektumot várja:
+        // A majd kÃ¼ldendÃµ utasÃ­tÃ¡sok elÃµkÃ©szÃ­tÃ©se a kÃ¶nnyebb(?) keresgÃ©lÃ©shez, illetve a parse-olÃ³nak
+        // A parse-olÃ³ minimum az alÃ¡bbi struktÃºrÃ¡jÃº objektumot vÃ¡rja:
         //     {
         //         "status": int,
         //         "target": int,
@@ -169,7 +165,7 @@ function NR_switch(msg, node) {
         //         "desc": string
         //     }
         // 
-        // Szóval objektumtöltés forEach-csel:
+        // SzÃ³val objektumtÃ¶ltÃ©s forEach-csel:
         DATA.commandList = {};
         msg.payload.entries.forEach(function (currentValue) {
             DATA.commandList[currentValue["number"]] = {
@@ -181,48 +177,48 @@ function NR_switch(msg, node) {
             };
         });
 
-        // A setup ezzel megtörtént
+        // A setup ezzel megtÃ¶rtÃ©nt
         FLAGS.SETUP = true;
 
         node.status({ text: "Setup ran", fill: "blue", shape: "dot" });
     }
     function NR_simplify() {
-        // Ez a node a complex feladatok "kilaposítását" végzi.
-        // A komplex feladat a kiinduló gráfban egy csomópontot képvisel és több feladat egymásutánját jelenti.
-        // A kilaposítás a kövekezõk szerint történik:
-        //     * A komplex-et felépítõ részfeladatok nem rendelkeznek ID-vel.
-        //       Hogy mégis kapjanak, megkeresésre kerül a használt legnagyobb ID az eredeti gráfban, majd attól
-        //       folytatólagosan kerül hozzárendelésre az azonosító az egyes részfeladatokhoz.
-        //     * A koplex feladat elõkövetelményei az elsõ részfeladat elõkövetelményei lesznek a belépési pontot
-        //       biztosítandó.
-        //     * A komplex feladat ID-je az utolsó részfeladat ID-je lesz. Így az arra elõkövetelményként hivatkozó
-        //       többi feladat hivatkozása nem sérül, nem kell módosítani.
+        // Ez a node a complex feladatok "kilaposÃ­tÃ¡sÃ¡t" vÃ©gzi.
+        // A komplex feladat a kiindulÃ³ grÃ¡fban egy csomÃ³pontot kÃ©pvisel Ã©s tÃ¶bb feladat egymÃ¡sutÃ¡njÃ¡t jelenti.
+        // A kilaposÃ­tÃ¡s a kÃ¶vekezÃµk szerint tÃ¶rtÃ©nik:
+        //     * A komplex-et felÃ©pÃ­tÃµ rÃ©szfeladatok nem rendelkeznek ID-vel.
+        //       Hogy mÃ©gis kapjanak, megkeresÃ©sre kerÃ¼l a hasznÃ¡lt legnagyobb ID az eredeti grÃ¡fban, majd attÃ³l
+        //       folytatÃ³lagosan kerÃ¼l hozzÃ¡rendelÃ©sre az azonosÃ­tÃ³ az egyes rÃ©szfeladatokhoz.
+        //     * A koplex feladat elÃµkÃ¶vetelmÃ©nyei az elsÃµ rÃ©szfeladat elÃµkÃ¶vetelmÃ©nyei lesznek a belÃ©pÃ©si pontot
+        //       biztosÃ­tandÃ³.
+        //     * A komplex feladat ID-je az utolsÃ³ rÃ©szfeladat ID-je lesz. Ãgy az arra elÃµkÃ¶vetelmÃ©nykÃ©nt hivatkozÃ³
+        //       tÃ¶bbi feladat hivatkozÃ¡sa nem sÃ©rÃ¼l, nem kell mÃ³dosÃ­tani.
         // ---------------------------------------------------------------------------------------------------------------------------------------------------
         //var node = this;
         var ENTRIES = msg.payload.entries;
 
-        // Ha van complex utasítás
+        // Ha van complex utasÃ­tÃ¡s
         if (ENTRIES.some(function (currentValue) { return currentValue.complex; })) {
-            // A legnagyobb ID megkeresése
+            // A legnagyobb ID megkeresÃ©se
             DATA.highestNumber = Math.max(ENTRIES.map((currentValue) => currentValue.number).sort(descendingSort).shift(), DATA.highestNumber);
 
-            // A vertex-ek (taskok) válogatása complex-ekre és nem-complex-ekre
+            // A vertex-ek (taskok) vÃ¡logatÃ¡sa complex-ekre Ã©s nem-complex-ekre
             var complexVerteces = [];
             var nonComplexVerteces = [];
             ENTRIES.forEach( (curretValue) => currentValue.complex ? complexVerteces.push(currentValue) : nonComplexVerteces.push(currentValue) );
-            // A függvény a fenti két tömbbe push-olja a megfelelõ taskokat
+            // A fÃ¼ggvÃ©ny a fenti kÃ©t tÃ¶mbbe push-olja a megfelelÃµ taskokat
 
-            // A complex vertex-ek kilaposítása. A replaceVertexWithSubGraph függvény minden complex feladatra
-            // elõállítja a megfelelõ, nem-complex vertexek listáját, majd ezt hozzáfûzi a nonComplexVerteces
-            // listához.
+            // A complex vertex-ek kilaposÃ­tÃ¡sa. A replaceVertexWithSubGraph fÃ¼ggvÃ©ny minden complex feladatra
+            // elÃµÃ¡llÃ­tja a megfelelÃµ, nem-complex vertexek listÃ¡jÃ¡t, majd ezt hozzÃ¡fÃ»zi a nonComplexVerteces
+            // listÃ¡hoz.
             complexVerteces.forEach(function (currentValue) {
-                // For Each paramétere: minden complex entry-re (task-ra) lefut, az éppen "laposított" a currentValue
+                // For Each paramÃ©tere: minden complex entry-re (task-ra) lefut, az Ã©ppen "laposÃ­tott" a currentValue
 
-                // A szülõk és az ID kinyerése
+                // A szÃ¼lÃµk Ã©s az ID kinyerÃ©se
                 var parents = currentValue.parents;
                 var number = currentValue.number;
 
-                // A subEntry-k konverziója - minden subEntry az elõzõ leszármazottja
+                // A subEntry-k konverziÃ³ja - minden subEntry az elÃµzÃµ leszÃ¡rmazottja
                 var newEntries = (currentValue.task.subEntries).reduce(function (total, currentValue) {
                     if (total.length === 0) {
                         total.push({
@@ -248,21 +244,21 @@ function NR_switch(msg, node) {
                     return total;
                 }, []);
 
-                // Az elsõ subEntry szülei a comlex entry szülei, így a kapcsolódás a gráf többi részéhez "visszafelé" megmarad
+                // Az elsÃµ subEntry szÃ¼lei a comlex entry szÃ¼lei, Ã­gy a kapcsolÃ³dÃ¡s a grÃ¡f tÃ¶bbi rÃ©szÃ©hez "visszafelÃ©" megmarad
                 newEntries[0].parents = parents;
 
-                // Az utolsó subEntry ID-je (száma) a complex Entry száma, így a kapcsolódás a gráf többi részéhez "elõrefelé" rendben
+                // Az utolsÃ³ subEntry ID-je (szÃ¡ma) a complex Entry szÃ¡ma, Ã­gy a kapcsolÃ³dÃ¡s a grÃ¡f tÃ¶bbi rÃ©szÃ©hez "elÃµrefelÃ©" rendben
                 var lastIndex = newEntries.length - 1;
                 newEntries[lastIndex].number = number;
 
-                // Korrekcióka
+                // KorrekciÃ³ka
                 (DATA.highestNumber)--;
 
-                // Hozzácsatolás a nem complex entry-k listájához
+                // HozzÃ¡csatolÃ¡s a nem complex entry-k listÃ¡jÃ¡hoz
                 nonComplexVerteces = nonComplexVerteces.concat(newEntries);
             });
 
-            // Már minden vertex nem-complex
+            // MÃ¡r minden vertex nem-complex
             msg.payload.entries = nonComplexVerteces;
             node.status({ text: "Complexes flattened" });
         } else {
@@ -273,8 +269,8 @@ function NR_switch(msg, node) {
     }
     function NR_setupWhileRunning() {
         msg = NR_simplify();
-        // A JavaScript objektumok listájának átalakítása kétdimenziós tömbökké
-        // A minimum várt objektumváz:
+        // A JavaScript objektumok listÃ¡jÃ¡nak Ã¡talakÃ­tÃ¡sa kÃ©tdimenziÃ³s tÃ¶mbÃ¶kkÃ©
+        // A minimum vÃ¡rt objektumvÃ¡z:
         //     {
         //         "number": int,
         //         "task": {
@@ -287,28 +283,28 @@ function NR_switch(msg, node) {
         //         },
         //         "parents": [..,int,..]
         //     }
-        // A lista, ami lesz belõle egyszer:
+        // A lista, ami lesz belÃµle egyszer:
         //     [..,[task_id, robot_id],..]
         var vertexList = msg.payload.entries.map( (currentValue) => [currentValue["number"], currentValue["task"]["target"]] );
-        // Majd másszor:
+        // Majd mÃ¡sszor:
         //     [..,[parent_id_id, child_id],..]
         var edgeList = [];
         msg.payload.entries.forEach(function (currentValue) {
-            // Tömb a tömbben, így a 2D-s iterálgatás 2. D-je. Lehetett volna erre is külön függvényt írni a main
-            //     rész végére, de ez most ilyen helyben-anonim lett.
+            // TÃ¶mb a tÃ¶mbben, Ã­gy a 2D-s iterÃ¡lgatÃ¡s 2. D-je. Lehetett volna erre is kÃ¼lÃ¶n fÃ¼ggvÃ©nyt Ã­rni a main
+            //     rÃ©sz vÃ©gÃ©re, de ez most ilyen helyben-anonim lett.
             currentValue["parents"].forEach(function (v) {
                 edgeList.push([v, this["number"]]);
             }, currentValue);
         });
 
-        // Elõször lista képzése az taskok target-jeibõl (map),
-        //     majd ennek az elemeinek rendezése növekvõ sorrendbe (sort),
-        //     végül szûrés a különbözõ elemekre (filter)
+        // ElÃµszÃ¶r lista kÃ©pzÃ©se az taskok target-jeibÃµl (map),
+        //     majd ennek az elemeinek rendezÃ©se nÃ¶vekvÃµ sorrendbe (sort),
+        //     vÃ©gÃ¼l szÃ»rÃ©s a kÃ¼lÃ¶nbÃ¶zÃµ elemekre (filter)
         var robotList = msg.payload.entries.map( (currentValue) => currentValue["task"]["target"] ).sort(ascendingSort).filter(function (currentValue, index, array) {
-            // A növekvõ (vagy csökkenõ - mindegy is, csak az azonos elemek egymás után legyenek) sorrendbe
-            //     rendezett tömbön lesz a végigszaladás: mindegyik elemnél vizsgálva lesz (jó, az elsõnél nem),
-            //     hogy azonos-e az elõzõvel. Ha igen, akkor az frankó, true-t ad vissza a filter, bekerül az
-            //     eredménytömbbe.
+            // A nÃ¶vekvÃµ (vagy csÃ¶kkenÃµ - mindegy is, csak az azonos elemek egymÃ¡s utÃ¡n legyenek) sorrendbe
+            //     rendezett tÃ¶mbÃ¶n lesz a vÃ©gigszaladÃ¡s: mindegyik elemnÃ©l vizsgÃ¡lva lesz (jÃ³, az elsÃµnÃ©l nem),
+            //     hogy azonos-e az elÃµzÃµvel. Ha igen, akkor az frankÃ³, true-t ad vissza a filter, bekerÃ¼l az
+            //     eredmÃ©nytÃ¶mbbe.
             if (index === 0) {
                 return true;
             } else {
@@ -316,8 +312,8 @@ function NR_switch(msg, node) {
             }
         });
 
-        // A majd küldendõ utasítások elõkészítése a könnyebb(?) keresgéléshez, illetve a parse-olónak
-        // A parse-oló minimum az alábbi struktúrájú objektumot várja:
+        // A majd kÃ¼ldendÃµ utasÃ­tÃ¡sok elÃµkÃ©szÃ­tÃ©se a kÃ¶nnyebb(?) keresgÃ©lÃ©shez, illetve a parse-olÃ³nak
+        // A parse-olÃ³ minimum az alÃ¡bbi struktÃºrÃ¡jÃº objektumot vÃ¡rja:
         //     {
         //         "status": int,
         //         "target": int,
@@ -329,7 +325,7 @@ function NR_switch(msg, node) {
         //         "desc": string
         //     }
         // 
-        // Szóval objektumtöltés forEach-csel:
+        // SzÃ³val objektumtÃ¶ltÃ©s forEach-csel:
         var commandList = {};
         msg.payload.entries.forEach(function (currentValue) {
             commandList[currentValue["number"]] = {
@@ -341,28 +337,28 @@ function NR_switch(msg, node) {
             };
         });
 
-        // A setup ezzel megtörtént
+        // A setup ezzel megtÃ¶rtÃ©nt
         FLAGS.SETUP = true;
 
         // Medzsik start
-        // - jó lenne valami id-ellenõrzõ, hogy ne legyen duplázás, mert itt tényleg lehet gond
+        // - jÃ³ lenne valami id-ellenÃµrzÃµ, hogy ne legyen duplÃ¡zÃ¡s, mert itt tÃ©nyleg lehet gond
         DATA.vertexList = DATA.vertexList.concat(vertexList);
         DATA.doneList.forEach(function (currentValue) {
             // doneList = [..[task_id, target_id]..]
             edgeList = edgeList.filter(function (value, index, array) {
-                // 'this'-ként bejött az elvégzett utasítás ID-je. Aztán az elõrelátó kódolás miatt mind
-                //     az éllista, mind a csomópontok listája olyan, hogy az elsõ elemmel kelljen játszani:
-                //         [..,[elvégzett utasítás id-je, child_id/target],..]
-                // Itt nem szerette a szigorú összevetést
+                // 'this'-kÃ©nt bejÃ¶tt az elvÃ©gzett utasÃ­tÃ¡s ID-je. AztÃ¡n az elÃµrelÃ¡tÃ³ kÃ³dolÃ¡s miatt mind
+                //     az Ã©llista, mind a csomÃ³pontok listÃ¡ja olyan, hogy az elsÃµ elemmel kelljen jÃ¡tszani:
+                //         [..,[elvÃ©gzett utasÃ­tÃ¡s id-je, child_id/target],..]
+                // Itt nem szerette a szigorÃº Ã¶sszevetÃ©st
                 return value[0] != this;
             }, currentValue[0]);
         });
         DATA.edgeList = DATA.edgeList.concat(edgeList);
         DATA.robotList = DATA.robotList.concat(robotList).sort(ascendingSort).filter(function (currentValue, index, array) {
-            // A növekvõ (vagy csökkenõ - mindegy is, csak az azonos elemek egymás után legyenek) sorrendbe
-            //     rendezett tömbön lesz a végigszaladás: mindegyik elemnél vizsgálva lesz (jó, az elsõnél nem),
-            //     hogy azonos-e az elõzõvel. Ha igen, akkor az frankó, true-t ad vissza a filter, bekerül az
-            //     eredménytömbbe.
+            // A nÃ¶vekvÃµ (vagy csÃ¶kkenÃµ - mindegy is, csak az azonos elemek egymÃ¡s utÃ¡n legyenek) sorrendbe
+            //     rendezett tÃ¶mbÃ¶n lesz a vÃ©gigszaladÃ¡s: mindegyik elemnÃ©l vizsgÃ¡lva lesz (jÃ³, az elsÃµnÃ©l nem),
+            //     hogy azonos-e az elÃµzÃµvel. Ha igen, akkor az frankÃ³, true-t ad vissza a filter, bekerÃ¼l az
+            //     eredmÃ©nytÃ¶mbbe.
             if (index === 0) {
                 return true;
             } else {
@@ -379,50 +375,50 @@ function NR_switch(msg, node) {
             var ROBOTS = DATA.robotList;
             var BUSY_ROBOTS = DATA.busyRobots;
 
-            // Az elérhetõ robotok listájának képzése - halmazmûveletesen a (ROBOTS - BUSY_ROBOTS) különbség képzése
+            // Az elÃ©rhetÃµ robotok listÃ¡jÃ¡nak kÃ©pzÃ©se - halmazmÃ»veletesen a (ROBOTS - BUSY_ROBOTS) kÃ¼lÃ¶nbsÃ©g kÃ©pzÃ©se
             var availableRobots = ROBOTS.filter( (value)  => !(includes(BUSY_ROBOTS, value)) );
 
-            // Az reply listába lesznek push-olva a majd kiküldendõ üzenetek.
-            // Ezeket majd egy split node szétszedi üzenetek egymásutánjára. A node.send() függvény hívása az
-            //     aszinkronitásból adódóan problémákat okozott.
+            // Az reply listÃ¡ba lesznek push-olva a majd kikÃ¼ldendÃµ Ã¼zenetek.
+            // Ezeket majd egy split node szÃ©tszedi Ã¼zenetek egymÃ¡sutÃ¡njÃ¡ra. A node.send() fÃ¼ggvÃ©ny hÃ­vÃ¡sa az
+            //     aszinkronitÃ¡sbÃ³l adÃ³dÃ³an problÃ©mÃ¡kat okozott.
             var reply = [];
 
-            // Kiküldhetõ feladat keresése minden elérhetõ robothoz, majd azok push-olása tehát az reply listába.
-            // Ezek mellett, ha található küldhetõ feladat, az adott robot felvétele a BUSY_ROBOTS listába.
+            // KikÃ¼ldhetÃµ feladat keresÃ©se minden elÃ©rhetÃµ robothoz, majd azok push-olÃ¡sa tehÃ¡t az reply listÃ¡ba.
+            // Ezek mellett, ha talÃ¡lhatÃ³ kÃ¼ldhetÃµ feladat, az adott robot felvÃ©tele a BUSY_ROBOTS listÃ¡ba.
             availableRobots.forEach(function (value) {
-                // A VERTECES lista szûrése a vizsgált médiumhozhoz tartozó feladatokra, majd a kapott listában szûrés
-                //     azokra, melyeknek nem található elõkövetelménye az EDGES listában (tehát ér õket küldeni). Végül
-                //     az így kapott lista egy elemének kishiftelése.
+                // A VERTECES lista szÃ»rÃ©se a vizsgÃ¡lt mÃ©diumhozhoz tartozÃ³ feladatokra, majd a kapott listÃ¡ban szÃ»rÃ©s
+                //     azokra, melyeknek nem talÃ¡lhatÃ³ elÃµkÃ¶vetelmÃ©nye az EDGES listÃ¡ban (tehÃ¡t Ã©r Ãµket kÃ¼ldeni). VÃ©gÃ¼l
+                //     az Ã­gy kapott lista egy elemÃ©nek kishiftelÃ©se.
                 var toBeSent = VERTECES.filter( (v) => v[1] === value ).filter(function (value, index) {
-                    // Annak vizsgálata, hogy az EDGES lista (irányított gráfélek) minden eleme NEM a VERTECES lista vizsgált
-                    //     elemébe mutat-e. (A szerencsétlen fogalmazás a szintaktika miatt.)
+                    // Annak vizsgÃ¡lata, hogy az EDGES lista (irÃ¡nyÃ­tott grÃ¡fÃ©lek) minden eleme NEM a VERTECES lista vizsgÃ¡lt
+                    //     elemÃ©be mutat-e. (A szerencsÃ©tlen fogalmazÃ¡s a szintaktika miatt.)
                     return EDGES.every(function (value_i) {
-                        // A this itt a VERTECES lista éppen vizsgált eleme
-                        // EDGES = [..,[parent_id, child_id],..] - tehát az 1-es index-szel rendelkezõ elem (child_id) vizsgáltatik.
+                        // A this itt a VERTECES lista Ã©ppen vizsgÃ¡lt eleme
+                        // EDGES = [..,[parent_id, child_id],..] - tehÃ¡t az 1-es index-szel rendelkezÃµ elem (child_id) vizsgÃ¡ltatik.
                         return value_i[1] !== this[0] || (value_i[1] === this[0] && value_i[0] === 0);
                     }, value);
                 }, EDGES).shift();
 
-                // Annak vizsgálata, hogy találtatott-e küldhetõ feladat.
+                // Annak vizsgÃ¡lata, hogy talÃ¡ltatott-e kÃ¼ldhetÃµ feladat.
                 if (toBeSent === undefined) {
                     //node.status({/*fill:"blue",shape:"dot",*/text:"No command to send."});
                 } else {
-                    // A talált feladat vertex-ének push-olása az reply listába.
+                    // A talÃ¡lt feladat vertex-Ã©nek push-olÃ¡sa az reply listÃ¡ba.
                     reply.push(toBeSent);
-                    // Illetve a vizsgált robot rögzítése a BUSY_ROBOTS listában.
+                    // Illetve a vizsgÃ¡lt robot rÃ¶gzÃ­tÃ©se a BUSY_ROBOTS listÃ¡ban.
                     BUSY_ROBOTS.push(value);
                     //node.status({/*fill:"green",shape:"ring",*/text:"Command sent."});
                 }
             });
 
-            // Az getSendableVertex() függvény által esetleg lefoglalt médiumok listájának visszamentése.
+            // Az getSendableVertex() fÃ¼ggvÃ©ny Ã¡ltal esetleg lefoglalt mÃ©diumok listÃ¡jÃ¡nak visszamentÃ©se.
             DATA.busyRobots = BUSY_ROBOTS;
 
             // Ha nem volt seholsemmilyen feladat, akkor ne menjen ki [] lista.
             if (reply.length === 0) {
                 msg = null;
             } else {
-                // Egyébként meg nem a vertex kell, hanem az ahoz tartozó, parser-nek a 'Setup'-ban elõkészített
+                // EgyÃ©bkÃ©nt meg nem a vertex kell, hanem az ahoz tartozÃ³, parser-nek a 'Setup'-ban elÃµkÃ©szÃ­tett
                 //     objektum.
                 msg.payload = reply.map( (v) => DATA.commandList[v[0]] );
                 msg = msg.payload.map(function (currentValue) {
@@ -438,14 +434,14 @@ function NR_switch(msg, node) {
         return msg;
     }
     function NR_acknowledge() {
-        if (!(msg.payload.hasOwnProperty("id"))) { // Ha nincs id, akkor a monitorból töltés
+        if (!(msg.payload.hasOwnProperty("id"))) { // Ha nincs id, akkor a monitorbÃ³l tÃ¶ltÃ©s
             msg.payload.id = MONITOR[msg.payload.target][1];
             MONITOR[msg.payload.target][0] = msg.payload.status;
         } else { // Ha van id, akkor egy log
             MONITOR[msg.payload.target][0] = msg.payload.status;
         }
 
-        if (!(msg.payload.hasOwnProperty("desc"))) { // Ha nincs leírás - ez általában nincs
+        if (!(msg.payload.hasOwnProperty("desc"))) { // Ha nincs leÃ­rÃ¡s - ez Ã¡ltalÃ¡ban nincs
             msg.payload.desc = MONITOR[msg.payload.target][2];
         }
 
@@ -453,29 +449,29 @@ function NR_switch(msg, node) {
     }
     function NR_done() {
         // MANAGE MONITOR ---------------------------------------------------------------
-        if (!(msg.payload.hasOwnProperty("id"))) { // Ha nincs id, akkor a monitorból töltés
+        if (!(msg.payload.hasOwnProperty("id"))) { // Ha nincs id, akkor a monitorbÃ³l tÃ¶ltÃ©s
             msg.payload.id = MONITOR[msg.payload.target][1];
             MONITOR[msg.payload.target][0] = msg.payload.status;
         } else { // Ha van id, akkor egy log
             MONITOR[msg.payload.target][0] = msg.payload.status;
         }
 
-        if (!(msg.payload.hasOwnProperty("desc"))) { // Ha nincs leírás - ez általában nincs
+        if (!(msg.payload.hasOwnProperty("desc"))) { // Ha nincs leÃ­rÃ¡s - ez Ã¡ltalÃ¡ban nincs
             msg.payload.desc = MONITOR[msg.payload.target][2];
         }
 
         // RECEIVE ---------------------------------------------------------------------
-        // Az elvégzett feladat kiszûrésével új vertex-lista képzése
+        // Az elvÃ©gzett feladat kiszÃ»rÃ©sÃ©vel Ãºj vertex-lista kÃ©pzÃ©se
             var VERTECES = DATA.vertexList.filter(function (value) {
-                // 'this'-ként bejött az elvégzett utasítás ID-je. Aztán az elõrelátó kódolás miatt mind
-                //     az éllista, mind a csomópontok listája olyan, hogy az elsõ elemmel kelljen játszani:
-                //         [..,[elvégzett utasítás id-je, child_id/target],..]
-                // Itt nem szerette a szigorú összevetést
+                // 'this'-kÃ©nt bejÃ¶tt az elvÃ©gzett utasÃ­tÃ¡s ID-je. AztÃ¡n az elÃµrelÃ¡tÃ³ kÃ³dolÃ¡s miatt mind
+                //     az Ã©llista, mind a csomÃ³pontok listÃ¡ja olyan, hogy az elsÃµ elemmel kelljen jÃ¡tszani:
+                //         [..,[elvÃ©gzett utasÃ­tÃ¡s id-je, child_id/target],..]
+                // Itt nem szerette a szigorÃº Ã¶sszevetÃ©st
                 return value[0] != this;
             }, msg.payload["id"]);
-            // A filter nem csereberél sorrendet, csak sorban kivesz, ha és amennyiben - iterátoros jellegû függvény volna, vagy mi
-            // Itt most ellenõrzésre kerül, hogy a done az jelentett-e bármiféle módosítást. Kellene, hogy jelentsen, mert egyébként
-            // a progi végtelen ciklusba futhat, az meg nem célravezetõ
+            // A filter nem csereberÃ©l sorrendet, csak sorban kivesz, ha Ã©s amennyiben - iterÃ¡toros jellegÃ» fÃ¼ggvÃ©ny volna, vagy mi
+            // Itt most ellenÃµrzÃ©sre kerÃ¼l, hogy a done az jelentett-e bÃ¡rmifÃ©le mÃ³dosÃ­tÃ¡st. Kellene, hogy jelentsen, mert egyÃ©bkÃ©nt
+            // a progi vÃ©gtelen ciklusba futhat, az meg nem cÃ©lravezetÃµ
             if (VERTECES.length === DATA.vertexList.length) {
                 msg["newVerteces"] = VERTECES;
                 msg["oldVerteces"] = DATA.vertexList;
@@ -483,33 +479,33 @@ function NR_switch(msg, node) {
                 return null;
             }
 
-            // Az elvégzett feladat jelentette elõkövetelmények kiszûrésével új éllista képzése
+            // Az elvÃ©gzett feladat jelentette elÃµkÃ¶vetelmÃ©nyek kiszÃ»rÃ©sÃ©vel Ãºj Ã©llista kÃ©pzÃ©se
             var EDGES = DATA.edgeList.filter(function (value) {
-                // 'this'-ként bejött az elvégzett utasítás ID-je. Aztán az elõrelátó kódolás miatt mind
-                //     az éllista, mind a csomópontok listája olyan, hogy az elsõ elemmel kelljen játszani:
-                //         [..,[elvégzett utasítás id-je, child_id/target],..]
-                // Itt nem szerette a szigorú összevetést
+                // 'this'-kÃ©nt bejÃ¶tt az elvÃ©gzett utasÃ­tÃ¡s ID-je. AztÃ¡n az elÃµrelÃ¡tÃ³ kÃ³dolÃ¡s miatt mind
+                //     az Ã©llista, mind a csomÃ³pontok listÃ¡ja olyan, hogy az elsÃµ elemmel kelljen jÃ¡tszani:
+                //         [..,[elvÃ©gzett utasÃ­tÃ¡s id-je, child_id/target],..]
+                // Itt nem szerette a szigorÃº Ã¶sszevetÃ©st
                 return value[0] != this;
             }, msg.payload["id"]);
 
-            // A feladatot elvégzõ robot kiszûrésével a foglalt robotok új listájának képzése
+            // A feladatot elvÃ©gzÃµ robot kiszÃ»rÃ©sÃ©vel a foglalt robotok Ãºj listÃ¡jÃ¡nak kÃ©pzÃ©se
             var BUSY_ROBOTS = DATA.busyRobots.filter(function (value) {
-                // Itt nem szerette a szigorú összevetést
+                // Itt nem szerette a szigorÃº Ã¶sszevetÃ©st
                 return value != this;
             }, msg.payload["target"]);
 
-            // Visszamentés és felülírás
+            // VisszamentÃ©s Ã©s felÃ¼lÃ­rÃ¡s
             DATA.vertexList = VERTECES;
             DATA.edgeList = EDGES;
             DATA.busyRobots = BUSY_ROBOTS;
             DATA.doneList.push([msg.payload.id, msg.payload.target]);
 
-            // Csak az üzenet ténye lesz a fontos a következõ node-nak - a kényszeres takarítás helye
+            // Csak az Ã¼zenet tÃ©nye lesz a fontos a kÃ¶vetkezÃµ node-nak - a kÃ©nyszeres takarÃ­tÃ¡s helye
             msg.payload = null;
 
             node.status({ text: "Got 'done'" });
 
-            // Lehet, hogy végzett is a dolog
+            // Lehet, hogy vÃ©gzett is a dolog
             if (VERTECES.length === 0) {
                 FLAGS.IN_PROCESS = false;
                 FLAGS.SETUP = false;
@@ -520,7 +516,7 @@ function NR_switch(msg, node) {
     }
 
     // ---------------------------------------------------------------------------------------------------------------------------------------------------
-    // Az iterátorfüggvények paraméterfüggvényei
+    // Az iterÃ¡torfÃ¼ggvÃ©nyek paramÃ©terfÃ¼ggvÃ©nyei
     function descendingSort(a, b) {
         return b - a;
     }
